@@ -1,0 +1,25 @@
+[project]
+name = "ttrack"
+version = "0.1.0"
+description = "Ttrack: the lightweight time tracker."
+readme = "README.md"
+requires-python = ">=3.7"
+authors = [
+  {name = "Thomas B. Brunner"}
+]
+maintainers = [
+  {name = "Thomas B. Brunner"}
+]
+dependencies = []
+
+# The following would provide a command line executable called `sample`
+# which executes the function `main` from this package when invoked.
+[project.scripts]
+ttrack = "ttrack:main"
+
+[tool.setuptools]
+packages = ["ttrack"]
+
+[build-system]
+requires = ["setuptools>=43.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
