@@ -20,66 +20,12 @@ import signal
 import sys
 import threading
 from datetime import date, datetime, timedelta
-from enum import StrEnum, auto
+from enum import Enum, auto
 from pathlib import Path
 
 
-class Cathegory(StrEnum):
+class Cathegory(str, Enum):
     WORK = auto()
-
-
-DatabaseType = dict[date, dict[Cathegory, timedelta]]
-DatabaseReprType = dict[str, dict[str, str]]
-
-
-def database_to_repr(database: DatabaseType) -> DatabaseReprType:
-    # Database with string representations of unserializable types.
-    database_repr = {}
-
-    for key, value in database.items():
-        if isinstance(key, date):
-            key_repr = repr(key)
-        elif isinstance(key, Cathegory):
-            key_repr = Cathegory.__name__ + "." + key.name
-        else:
-            raise RuntimeError(f"Unexpected database key '{key}'.")
-
-        if isinstance(value, dict):
-            value_repr = database_to_repr(value)
-        elif isinstance(value, timedelta):
-            value_repr = repr(value)
-        else:
-            raise RuntimeError(f"Unexpected database value '{value}'.")
-
-        database_repr[key_repr] = value_repr
-
-    return database_repr
-
-
-def repr_to_database(database_repr: DatabaseReprType):
-    # Required import for the evals to work.
-    import datetime
-
-    database = {}
-
-    for key_repr, value_repr in database_repr.items():
-        if key_repr.startswith("datetime.date("):
-            key = eval(key_repr)
-        elif key_repr.startswith("Cathegory."):
-            key = eval(key_repr)
-        else:
-            raise RuntimeError(f"Unexpected database key '{key_repr}'.")
-
-        if isinstance(value_repr, dict):
-            value = repr_to_database(value_repr)
-        elif value_repr.startswith("datetime.timedelta("):
-            value = eval(value_repr)
-        else:
-            raise RuntimeError(f"Unexpected database value '{value_repr}'.")
-
-        database[key] = value
-
-    return database
 
 
 def get_elapsed(start_time: datetime, end_time: datetime):
@@ -94,72 +40,116 @@ def get_elapsed(start_time: datetime, end_time: datetime):
     return elapsed_hours, elapsed_minutes
 
 
-def save_database(database: DatabaseType, path: Path):
-    database_repr = database_to_repr(database)
-    database_json = json.dumps(database_repr, indent=2)
-    path.write_text(database_json)
+class _Database:
 
+    _DbType = dict[date, dict[Cathegory, timedelta]]
+    _EncodedDbType = dict[str, dict[str, str]]
 
-def load_database(path: Path):
-    database_json = path.read_text()
-    database_repr = json.loads(database_json)
-    database = repr_to_database(database_repr)
-    return database
+    def __init__(self):
+        self._database: self._DbType = {}
 
+    def log_hours(self, start_time: datetime, end_time: datetime):
+        start_date = start_time.date()
+        end_date = end_time.date()
 
-def log_to_database(
-    database: DatabaseType, date: date, cathegory: Cathegory, delta: timedelta
-):
-    if date not in database:
-        database[date] = {}
+        if end_date >= start_date:
+            elapsed_time = end_time - start_time
+            self._log_entry(start_date, Cathegory.WORK, elapsed_time)
 
-    if cathegory not in database[date.today()]:
-        database[date][cathegory] = timedelta()
+        # TODO Assign tracked hours to the correct date.
+        # Requires considering timezones, as start and end times might be on the
+        # same day in the local timezone, but different days in UTC.
+        # elif end_date > start_date:
 
-    database[date][cathegory] += delta
+        else:
+            raise RuntimeError("Unexpected condition: end date is before start date.")
 
+    def _log_entry(self, date: date, cathegory: Cathegory, delta: timedelta):
+        if date not in self._database:
+            self._database[date] = {}
 
-def log_hours(
-    database: DatabaseType, start_time: datetime, end_time: datetime, path: Path
-):
-    start_date = start_time.date()
-    end_date = end_time.date()
+        if cathegory not in self._database[date]:
+            self._database[date][cathegory] = timedelta()
 
-    if end_date >= start_date:
-        elapsed_time = end_time - start_time
-        log_to_database(database, start_date, Cathegory.WORK, elapsed_time)
-        save_database(database, path)
+        self._database[date][cathegory] += delta
 
-    # TODO Assign tracked hours to the correct date.
-    # Requires considering timezones, as start and end times might be on the
-    # same day in the local timezone, but different days in UTC.
-    # elif end_date > start_date:
+    def save_to_file(self, path: Path):
+        database_encoded = self._encode()
+        database_json = json.dumps(database_encoded, indent=2)
+        path.write_text(database_json)
 
-    else:
-        raise RuntimeError("Unexpected condition: end date is before start date.")
+    @classmethod
+    def load_from_file(cls, path: Path):
+        database_json = path.read_text()
+        database_encoded = json.loads(database_json)
+        database = cls()
+        database._database = cls._decode(database_encoded)
+
+        return database
+
+    def _encode(self) -> _EncodedDbType:
+
+        database_encoded = {}
+        for date, cathegories in self._database.items():
+
+            date_repr = repr(date)
+            database_encoded[date_repr] = {}
+
+            for cathegory, timedelta in cathegories.items():
+                cathegory_repr = Cathegory.__name__ + "." + cathegory.name
+                timedelta_repr = repr(timedelta)
+
+                database_encoded[date_repr][cathegory_repr] = timedelta_repr
+        
+        return database_encoded
+
+    @classmethod
+    def _decode(cls, database_encoded: _EncodedDbType):
+
+        # Required import for the evals to work.
+        import datetime
+
+        database = {}
+        for date_repr, cathegories in database_encoded.items():
+
+            assert date_repr.startswith("datetime.date(")
+            date = eval(date_repr)
+            database[date] = {}
+
+            for cathegory_repr, timedelta_repr in cathegories.items():
+                assert cathegory_repr.startswith("Cathegory.")
+                cathegory = eval(cathegory_repr)
+
+                assert timedelta_repr.startswith("datetime.timedelta(")
+                timedelta = eval(timedelta_repr)
+
+                database[date][cathegory] = timedelta
+        
+        return database
 
 
 def main():
     _DATABASE_PATH = Path("~/.local/share/ttrack/database.json").expanduser()
 
-    database: DatabaseType
+    database: _Database
     if _DATABASE_PATH.is_file() and _DATABASE_PATH.stat().st_size != 0:
-        database = load_database(_DATABASE_PATH)
+        database = _Database.load_from_file(_DATABASE_PATH)
     else:
         _DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
         _DATABASE_PATH.touch()
-        database = {}
+        database = _Database()
 
     print("Tracking work hours...")
 
     start_time = datetime.utcnow()
 
-    def log_hours_():
+    def log_and_save():
         cur_time = datetime.utcnow()
-        log_hours(database, start_time, cur_time, _DATABASE_PATH)
+        database.log_hours(start_time, cur_time)
+        database.save_to_file(_DATABASE_PATH)
 
-    # Call function to log hours in every occasion that the program exists.
-    atexit.register(log_hours_)
+    # Log hours and save database when program exists.
+    atexit.register(log_and_save)
 
     try:
         forever = threading.Event()

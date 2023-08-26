@@ -2,11 +2,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from ttrack.ttrack import (
-    DatabaseType,
+    _Database,
     get_elapsed,
-    load_database,
-    log_hours,
-    save_database,
 )
 
 
@@ -16,27 +13,24 @@ def test():
     if _DATABASE_TEST_PATH.exists():
         _DATABASE_TEST_PATH.unlink()
 
-    database: DatabaseType
-    database = {}
+    database: _Database = _Database()
 
     start_time = datetime.utcnow()
 
     # Emulate tracking for a couple of hours.
     end_time = start_time + timedelta(days=1, hours=3.2, seconds=55.333)
 
-    log_hours(database, start_time, end_time)
+    # Compute elapsed time and encode to JSON.
+    database.log_hours(start_time, end_time)
+    database.save_to_file(_DATABASE_TEST_PATH)
 
     elapsed_hours, elapsed_minutes = get_elapsed(start_time, end_time)
     print(f"Time tracked in session: {elapsed_hours} hours {elapsed_minutes} minutes.")
 
-    # Encode to JSON.
-    save_database(database, _DATABASE_TEST_PATH)
-
     # Decode from JSON.
-    database_decoded = load_database(_DATABASE_TEST_PATH)
-    print(database)
+    database_decoded = _Database.load_from_file(_DATABASE_TEST_PATH)
 
-    assert database == database_decoded
+    assert database._database == database_decoded._database
 
     _DATABASE_TEST_PATH.unlink()
 
