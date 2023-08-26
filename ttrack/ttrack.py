@@ -28,9 +28,6 @@ class Cathegory(StrEnum):
     WORK = auto()
 
 
-_DATABASE_PATH = Path("~/.local/share/ttrack/database.json").expanduser()
-
-
 DatabaseType = dict[date, dict[Cathegory, timedelta]]
 DatabaseReprType = dict[str, dict[str, str]]
 
@@ -123,9 +120,7 @@ def log_to_database(
 
 
 def log_hours(
-    database: DatabaseType,
-    start_time: datetime,
-    end_time: datetime,
+    database: DatabaseType, start_time: datetime, end_time: datetime, path: Path
 ):
     start_date = start_time.date()
     end_date = end_time.date()
@@ -133,7 +128,7 @@ def log_hours(
     if end_date >= start_date:
         elapsed_time = end_time - start_time
         log_to_database(database, start_date, Cathegory.WORK, elapsed_time)
-        save_database(database, _DATABASE_PATH)
+        save_database(database, path)
 
     # TODO Assign tracked hours to the correct date.
     # Requires considering timezones, as start and end times might be on the
@@ -145,6 +140,8 @@ def log_hours(
 
 
 def main():
+    _DATABASE_PATH = Path("~/.local/share/ttrack/database.json").expanduser()
+
     database: DatabaseType
     if _DATABASE_PATH.is_file() and _DATABASE_PATH.stat().st_size != 0:
         database = load_database(_DATABASE_PATH)
@@ -159,7 +156,7 @@ def main():
 
     def log_hours_():
         cur_time = datetime.utcnow()
-        log_hours(database, start_time, cur_time)
+        log_hours(database, start_time, cur_time, _DATABASE_PATH)
 
     # Call function to log hours in every occasion that the program exists.
     atexit.register(log_hours_)

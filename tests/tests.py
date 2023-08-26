@@ -9,10 +9,10 @@ from ttrack.ttrack import (
     save_database,
 )
 
-_DATABASE_TEST_PATH = Path("tests/database_test.json").expanduser()
-
 
 def test():
+    _DATABASE_TEST_PATH = Path("tests/database_test.json").expanduser()
+
     if _DATABASE_TEST_PATH.exists():
         _DATABASE_TEST_PATH.unlink()
 
