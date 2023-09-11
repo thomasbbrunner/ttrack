@@ -27,9 +27,7 @@ class Cathegory(str, Enum):
     WORK = auto()
 
 
-def get_elapsed(start_time: datetime, end_time: datetime):
-    elapsed_time = end_time - start_time
-
+def get_elapsed(elapsed_time: timedelta):
     # Get number of completed hours.
     elapsed_hours, remaining_delta = divmod(elapsed_time, timedelta(hours=1))
     # Get rounded number of minutes.
@@ -45,6 +43,16 @@ class _Database:
 
     def __init__(self):
         self._database: self._DbType = {}
+
+    def get_hours_today(self, date: date) -> timedelta:
+        if date not in self._database:
+            return timedelta(0)
+
+        cathegory = Cathegory.WORK
+        if cathegory not in self._database[date]:
+            return timedelta(0)
+        
+        return self._database[date][cathegory]
 
     def log_hours(self, start_time: datetime, end_time: datetime):
         start_date = start_time.date()
@@ -138,9 +146,19 @@ def ttrack(stdscr: curses.window):
     try:
         while True:
             stdscr.addstr(0, 0, "Tracking work hours...")
+
             cur_time = datetime.utcnow()
-            elapsed_hours, elapsed_minutes = get_elapsed(start_time, cur_time)
-            stdscr.addstr(1, 0, f"Time tracked in this session: {elapsed_hours} hours {elapsed_minutes} minutes.")
+            hours_session, minutes_session = get_elapsed(cur_time - start_time)
+            stdscr.addstr(1, 0, f"Time tracked in this session: {hours_session} hours {minutes_session} minutes.")
+
+            timedelta_today = database.get_hours_today(date.today())
+            hours_today, minutes_today = get_elapsed(timedelta_today)
+            stdscr.addstr(2, 0, f"Time tracked today: {hours_today} hours {minutes_today} minutes.")
+
+            # TODO this week
+
+            # TODO this month
+
             stdscr.refresh()
             time.sleep(60)
 
@@ -149,7 +167,7 @@ def ttrack(stdscr: curses.window):
         signal.signal(signal.SIGINT, signal.SIG_IGN)
 
         end_time = datetime.utcnow()
-        elapsed_hours, elapsed_minutes = get_elapsed(start_time, end_time)
+        elapsed_hours, elapsed_minutes = get_elapsed(end_time - start_time)
 
         # Return normally, as KeyboardInterrupt is the intended method to exit
         # the tracker.

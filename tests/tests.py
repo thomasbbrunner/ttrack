@@ -21,7 +21,7 @@ def test():
     database.log_hours(start_time, end_time)
     database.save_to_file(_DATABASE_TEST_PATH)
 
-    elapsed_hours, elapsed_minutes = get_elapsed(start_time, end_time)
+    elapsed_hours, elapsed_minutes = get_elapsed(end_time - start_time)
     print(f"Time tracked in session: {elapsed_hours} hours {elapsed_minutes} minutes.")
 
     # Decode from JSON.
