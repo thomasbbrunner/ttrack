@@ -14,11 +14,10 @@ Credit: +2 hours
 (KeyboardInterrupt)
 Time tracked in session: 4 hours 32 minutes.
 """
-import atexit
+import curses
 import json
 import signal
-import sys
-import threading
+import time
 from datetime import date, datetime, timedelta
 from enum import Enum, auto
 from pathlib import Path
@@ -41,7 +40,6 @@ def get_elapsed(start_time: datetime, end_time: datetime):
 
 
 class _Database:
-
     _DbType = dict[date, dict[Cathegory, timedelta]]
     _EncodedDbType = dict[str, dict[str, str]]
 
@@ -88,10 +86,8 @@ class _Database:
         return database
 
     def _encode(self) -> _EncodedDbType:
-
         database_encoded = {}
         for date, cathegories in self._database.items():
-
             date_repr = repr(date)
             database_encoded[date_repr] = {}
 
@@ -100,18 +96,16 @@ class _Database:
                 timedelta_repr = repr(timedelta)
 
                 database_encoded[date_repr][cathegory_repr] = timedelta_repr
-        
+
         return database_encoded
 
     @classmethod
     def _decode(cls, database_encoded: _EncodedDbType):
-
         # Required import for the evals to work.
         import datetime
 
         database = {}
         for date_repr, cathegories in database_encoded.items():
-
             assert date_repr.startswith("datetime.date(")
             date = eval(date_repr)
             database[date] = {}
@@ -124,11 +118,11 @@ class _Database:
                 timedelta = eval(timedelta_repr)
 
                 database[date][cathegory] = timedelta
-        
+
         return database
 
 
-def main():
+def ttrack(stdscr: curses.window):
     _DATABASE_PATH = Path("~/.local/share/ttrack/database.json").expanduser()
 
     database: _Database
@@ -139,40 +133,37 @@ def main():
         _DATABASE_PATH.touch()
         database = _Database()
 
-    print("Tracking work hours...")
-
     start_time = datetime.utcnow()
 
-    def log_and_save():
-        cur_time = datetime.utcnow()
-        database.log_hours(start_time, cur_time)
-        database.save_to_file(_DATABASE_PATH)
-
-    # Log hours and save database when program exists.
-    atexit.register(log_and_save)
-
     try:
-        forever = threading.Event()
-        forever.wait()
+        while True:
+            stdscr.addstr(0, 0, "Tracking work hours...")
+            cur_time = datetime.utcnow()
+            elapsed_hours, elapsed_minutes = get_elapsed(start_time, cur_time)
+            stdscr.addstr(1, 0, f"Time tracked in this session: {elapsed_hours} hours {elapsed_minutes} minutes.")
+            stdscr.refresh()
+            time.sleep(60)
 
     except KeyboardInterrupt:
         # Ignore KeyboardInterrupt while handling exit.
         signal.signal(signal.SIGINT, signal.SIG_IGN)
-        print("Stopping tracking.")
 
         end_time = datetime.utcnow()
         elapsed_hours, elapsed_minutes = get_elapsed(start_time, end_time)
 
-        print(
-            f"Time tracked in session: {elapsed_hours} hours {elapsed_minutes} minutes."
-        )
+        # Return normally, as KeyboardInterrupt is the intended method to exit
+        # the tracker.
+        return elapsed_hours, elapsed_minutes
+
+    finally:
+        # Log hours and save database when program exists.
+        end_time = datetime.utcnow()
+        database.log_hours(start_time, end_time)
+        database.save_to_file(_DATABASE_PATH)
 
         # Set KeyboardInterrupt to default handler.
         signal.signal(signal.SIGINT, signal.SIG_DFL)
-        # Exit normally, as KeyboardInterrupt is the intended method to exit
-        # the tracker.
-        sys.exit(0)
 
 
 if __name__ == "__main__":
-    main()
+    curses.wrapper(ttrack)

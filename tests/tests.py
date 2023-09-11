@@ -1,10 +1,7 @@
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from ttrack.ttrack import (
-    _Database,
-    get_elapsed,
-)
+from ttrack.ttrack import _Database, get_elapsed
 
 
 def test():
