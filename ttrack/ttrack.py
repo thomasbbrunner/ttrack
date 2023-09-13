@@ -148,6 +148,8 @@ def ttrack(stdscr: curses.window):
             stdscr.addstr(0, 0, "Tracking work hours...")
 
             cur_time = datetime.utcnow()
+            database.log_hours(start_time, cur_time)
+
             hours_session, minutes_session = get_elapsed(cur_time - start_time)
             stdscr.addstr(1, 0, f"Time tracked in this session: {hours_session} hours {minutes_session} minutes.")
 
@@ -174,14 +176,10 @@ def ttrack(stdscr: curses.window):
         return elapsed_hours, elapsed_minutes
 
     finally:
-        # Log hours and save database when program exists.
+        # Log hours and save database before returning.
         end_time = datetime.utcnow()
         database.log_hours(start_time, end_time)
         database.save_to_file(_DATABASE_PATH)
 
         # Set KeyboardInterrupt to default handler.
         signal.signal(signal.SIGINT, signal.SIG_DFL)
-
-
-if __name__ == "__main__":
-    curses.wrapper(ttrack)

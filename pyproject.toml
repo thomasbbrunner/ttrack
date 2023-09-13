@@ -1,7 +1,7 @@
 [project]
 name = "ttrack"
 version = "0.2.0"
-description = "ttrack: the lightweight time tracker."
+description = "ttrack: a lightweight time tracker."
 readme = "README.md"
 requires-python = ">=3.9"
 authors = [
@@ -12,8 +12,6 @@ maintainers = [
 ]
 dependencies = []
 
-# The following would provide a command line executable called `sample`
-# which executes the function `main` from this package when invoked.
 [project.scripts]
 ttrack = "ttrack.main:main"
 

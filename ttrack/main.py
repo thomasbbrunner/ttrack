@@ -27,7 +27,6 @@ def main():
         elapsed_hours, elapsed_minutes = ttrack(stdscr=stdscr)
 
     finally:
-        # Set everything back to normal
         if "stdscr" in locals():
             stdscr.keypad(0)
             curses.echo()
